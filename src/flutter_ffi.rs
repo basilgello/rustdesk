@@ -2271,6 +2271,7 @@ pub mod server_side {
         log::debug!("startService from jvm");
         config::Config::set_option("stop-service".into(), "".into());
         crate::rendezvous_mediator::RendezvousMediator::restart();
+        log::info!("RustDesk server ID: {}", get_id())
     }
 
     #[no_mangle]
