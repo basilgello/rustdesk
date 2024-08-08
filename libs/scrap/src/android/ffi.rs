@@ -21,6 +21,7 @@ lazy_static! {
     static ref VIDEO_RAW: Mutex<FrameRaw> = Mutex::new(FrameRaw::new("video", MAX_VIDEO_FRAME_TIMEOUT));
     static ref AUDIO_RAW: Mutex<FrameRaw> = Mutex::new(FrameRaw::new("audio", MAX_AUDIO_FRAME_TIMEOUT));
     static ref NDK_CONTEXT_INITED: Mutex<bool> = Default::default();
+    static ref AV_CONTEXT_INITED: Mutex<bool> = Default::default();
     static ref MEDIA_CODEC_INFOS: RwLock<Option<MediaCodecInfos>> = RwLock::new(None);
 }
 
@@ -152,14 +153,22 @@ pub extern "system" fn Java_ffi_FFI_setFrameRawEnable(
 }
 
 #[no_mangle]
-pub extern "system" fn Java_ffi_FFI_init(env: JNIEnv, _class: JClass, ctx: JObject) {
-    log::debug!("MainService init from java");
+pub extern "system" fn Java_ffi_FFI_initCtx(env: JNIEnv, _class: JClass, ctx: JObject) {
+    log::debug!("Init FFI from java");
     if let Ok(jvm) = env.get_java_vm() {
         *JVM.write().unwrap() = Some(jvm);
         if let Ok(context) = env.new_global_ref(ctx) {
             *MAIN_SERVICE_CTX.write().unwrap() = Some(context);
             init_ndk_context().ok();
         }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_ffi_FFI_initAv(env: JNIEnv, _class: JClass) {
+    log::debug!("Init AV from java");
+    if let Ok(jvm) = env.get_java_vm() {
+        init_av_context().ok();
     }
 }
 
@@ -349,6 +358,21 @@ fn init_ndk_context() -> JniResult<()> {
                 jvm.get_java_vm_pointer() as _,
                 ctx.as_obj().as_raw() as _,
             );
+        }
+        *lock = true;
+        return Ok(());
+    }
+    Err(JniError::ThrowFailed(-1))
+}
+
+fn init_av_context() -> JniResult<()> {
+    let mut lock = AV_CONTEXT_INITED.lock().unwrap();
+    if *lock {
+        log::debug!("AV Context already defined!");
+        return Ok(());
+    }
+    if let Some(jvm) = JVM.read().unwrap().as_ref() {
+        unsafe {
             #[cfg(feature = "hwcodec")]
             hwcodec::android::ffmpeg_set_java_vm(
                 jvm.get_java_vm_pointer() as _,

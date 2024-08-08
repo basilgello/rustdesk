@@ -231,7 +231,8 @@ class MainService : Service() {
     override fun onCreate() {
         super.onCreate()
         Log.d(logTag,"MainService onCreate, sdk int:${Build.VERSION.SDK_INT} reuseVirtualDisplay:$reuseVirtualDisplay")
-        FFI.init(this)
+        FFIInitSingleton.INSTANCE.initCtx(this)
+        FFIInitSingleton.INSTANCE.initAv()
         HandlerThread("Service", Process.THREAD_PRIORITY_BACKGROUND).apply {
             start()
             serviceLooper = looper
